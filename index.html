@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kulki z żyroskopem</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let balls = [
+      { x: canvas.width / 2, y: canvas.height / 2, radius: 30, vx: 0, vy: 0 }
+    ];
+
+    const gravity = 0.1;
+    const friction = 0.98;
+
+    // Obsługa ruchu za pomocą żyroskopu
+    let tiltX = 0;
+    let tiltY = 0;
+
+    if (window.DeviceMotionEvent) {
+      window.addEventListener("devicemotion", (event) => {
+        tiltX = event.accelerationIncludingGravity.x || 0;
+        tiltY = event.accelerationIncludingGravity.y || 0;
+      });
+    }
+
+    function updatePhysics() {
+      balls.forEach((ball) => {
+        ball.vx += tiltX * 0.5;
+        ball.vy += tiltY * 0.5;
+
+        // Dodaj grawitację
+        ball.vy += gravity;
+
+        // Uwzględnij tarcie
+        ball.vx *= friction;
+        ball.vy *= friction;
+
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // Odbicie od ścian
+        if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+          ball.vx *= -1;
+          ball.x = Math.max(ball.radius, Math.min(ball.x, canvas.width - ball.radius));
+        }
+
+        if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+          ball.vy *= -1;
+          ball.y = Math.max(ball.radius, Math.min(ball.y, canvas.height - ball.radius));
+        }
+      });
+    }
+
+    function drawBalls() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      balls.forEach((ball) => {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "blue";
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function splitBall(index) {
+      const ball = balls[index];
+      if (ball.radius > 10) {
+        const newRadius = ball.radius / 2;
+
+        // Tworzenie dwóch nowych kulek
+        balls.push(
+          { x: ball.x - newRadius, y: ball.y, radius: newRadius, vx: ball.vx - 2, vy: ball.vy },
+          { x: ball.x + newRadius, y: ball.y, radius: newRadius, vx: ball.vx + 2, vy: ball.vy }
+        );
+      }
+      // Usunięcie oryginalnej kulki
+      balls.splice(index, 1);
+    }
+
+    canvas.addEventListener("click", (e) => {
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+
+      balls.forEach((ball, index) => {
+        const distance = Math.sqrt((ball.x - clickX) ** 2 + (ball.y - clickY) ** 2);
+        if (distance < ball.radius) {
+          splitBall(index);
+        }
+      });
+    });
+
+    function gameLoop() {
+      updatePhysics();
+      drawBalls();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
